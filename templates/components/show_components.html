@@ -6,6 +6,8 @@
     <title>Document</title>
 </head>
 <body>
-    {{ components }}
+    {% for s in components %}
+    {{ s.id }} {{ s.model_name }} <br>
+    {% endfor %}
 </body>
 </html>

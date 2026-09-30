@@ -2,6 +2,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.generic import TemplateView
 from django.views import View
+from typing import Any
 
 from itEquipmentWarehouse.models import Component
 
@@ -9,8 +10,8 @@ from itEquipmentWarehouse.models import Component
 class ShowComponentsView(TemplateView):
     template_name = "components/show_components.html"
 
-    def get_context_data(self, **kwargs: any) -> dict[str, any]:
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        context['students'] = Component.objects.all()
+        context['components'] = Component.objects.all()
 
         return context
