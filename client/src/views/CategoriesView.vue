@@ -2,6 +2,7 @@
 import { onBeforeMount, ref } from 'vue';
 import axios from 'axios';
 import Cookies from 'js-cookie';
+import { Modal } from 'bootstrap';
 
 const categories = ref([]);
 const categoryToAdd = ref({
@@ -11,6 +12,11 @@ const categoryToAdd = ref({
 
 const categoryToEdit = ref({});
 const loading = ref(false);
+
+const categoryPictureRef = ref();
+const categoryAddPictureUrl = ref();
+const categoryEditPictureRef = ref();
+const previewPictureUrl = ref('');
 
 async function fetchCategories() {
   loading.value = true;
@@ -44,12 +50,33 @@ function onEditClick(category) {
 }
 
 async function onUpdateCategory() {
-  const payload = { ...categoryToEdit.value };
-  const id = payload.id;
-  delete payload.id;
+  const formData = new FormData();
 
-  await axios.put(`/api/categories/${id}/`, payload);
-  await fetchCategories();
+  formData.append('name', categoryToEdit.value.name);
+  formData.append('is_standalone', categoryToEdit.value.is_standalone);
+  formData.append('picture', categoryEditPictureRef.value.files[0]);
+
+  await axios.put(`/api/categories/${categoryToEdit.value.id}/`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+
+  categoryEditPictureRef.value.value = '';
+
+  await fetchComponents();
+}
+
+async function categoryAddPictureChange() {
+  componentAddPictureUrl.value = URL.createObjectURL(componentPictureRef.value.files[0])
+}
+
+function onPictureClick(url) {
+  const fullUrl = url.startsWith('http') ? url : `http://localhost:8000${url}`;
+  previewPictureUrl.value = fullUrl;
+  const modalEl = document.getElementById('picturePreviewModal');
+  const modal = Modal.getOrCreateInstance(modalEl);
+  modal.show();
 }
 </script>
 
@@ -84,6 +111,9 @@ async function onUpdateCategory() {
             </label>
           </div>
         </div>
+        <div class="col-auto">
+          <input class="form-control" type="file" ref="categoryPictureRef" @change="categoryAddPictureChange">
+        </div>
 
         <div class="col-12">
           <button class="btn btn-primary" type="submit">
@@ -102,6 +132,7 @@ async function onUpdateCategory() {
           <th>ID</th>
           <th>Название</th>
           <th>Тип</th>
+          <th>Изображение</th>
         </tr>
       </thead>
       <tbody>
@@ -109,6 +140,10 @@ async function onUpdateCategory() {
           <td>{{ item.id }}</td>
           <td><strong>{{ item.name }}</strong></td>
           <td>{{ item.is_standalone ? 'Самостоятельное устройство' : 'Комплектующее' }}</td>
+          <td v-if="item.picture">
+            <img :src="item.picture" style="max-height: 60px; cursor: pointer;" class="rounded border shadow-sm"@click="onPictureClick(item.picture)"/>
+          </td>
+          <td v-else class="text-muted">Нет фото</td>
         </tr>
       </tbody>
     </table>
@@ -126,21 +161,16 @@ async function onUpdateCategory() {
 
       <div class="d-flex gap-2">
         <button
-          class="btn btn-sm btn-outline-success"
+          class="btn btn-success"
           data-bs-toggle="modal"
           data-bs-target="#editCategoryModal"
           @click="onEditClick(item)"
-          title="Редактировать"
         >
-          <i class="bi bi-pencil-fill"></i> Редактировать
+          <i class="bi bi-pen-fill"></i>
         </button>
 
-        <button
-          class="btn btn-sm btn-outline-danger"
-          @click="onRemoveClick(item)"
-          title="Удалить"
-        >
-          <i class="bi bi-trash-fill"></i> Удалить
+        <button class="btn btn-danger"@click="onRemoveClick(item)">
+          <i class="bi bi-x"></i>
         </button>
       </div>
     </div>
@@ -184,6 +214,10 @@ async function onUpdateCategory() {
                   </label>
                 </div>
               </div>
+              <div class="col-12">
+                <label class="form-label">Заменить изображение</label>
+                <input class="form-control" type="file" ref="categoryEditPictureRef">
+              </div>
             </div>
           </div>
           <div class="modal-footer">
@@ -207,6 +241,18 @@ async function onUpdateCategory() {
       </div>
     </div>
   </div>
+  <div class="modal fade" id="picturePreviewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center pt-0">
+        <img :src="previewPictureUrl" class="img-fluid rounded shadow"/>
+      </div>
+    </div>
+  </div>
+</div>
 </template>
 
 <style scoped>

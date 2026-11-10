@@ -6,6 +6,7 @@ from django.contrib.auth.models import User
 class Category(models.Model):
     name = models.TextField("Название категории")
     is_standalone = models.BooleanField("Самостоятельное устройство", default=False)
+    picture = models.ImageField("Изображение", null=True, upload_to="categories/") 
     class Meta:
         verbose_name = "Категория"
         verbose_name_plural = "Категории"
@@ -20,7 +21,8 @@ class Component(models.Model):
     specifications = models.TextField("Технические характеристики")
     quantity_stock = models.IntegerField("Кол-во на складе")
     status = models.TextField("Статус", default="В наличии")
-    created_at = models.DateTimeField("Дата добавления", auto_now_add=True) 
+    created_at = models.DateTimeField("Дата добавления", auto_now_add=True)
+    picture = models.ImageField("Изображение", null=True, upload_to="components/") 
     class Meta:
             verbose_name = "Компонент"
             verbose_name_plural = "Компоненты"

@@ -161,21 +161,16 @@ async function onUpdateAssemblyItem() {
 
       <div class="d-flex gap-2">
         <button
-          class="btn btn-sm btn-outline-success"
+          class="btn btn-success"
           data-bs-toggle="modal"
           data-bs-target="#editAssemblyItemModal"
           @click="onEditClick(item)"
-          title="Редактировать"
         >
-          <i class="bi bi-pencil-fill"></i> Редактировать
+          <i class="bi bi-pen-fill"></i>
         </button>
 
-        <button
-          class="btn btn-sm btn-outline-danger"
-          @click="onRemoveClick(item)"
-          title="Удалить"
-        >
-          <i class="bi bi-trash-fill"></i> Удалить
+        <button class="btn btn-danger"@click="onRemoveClick(item)">
+          <i class="bi bi-x"></i>
         </button>
       </div>
     </div>

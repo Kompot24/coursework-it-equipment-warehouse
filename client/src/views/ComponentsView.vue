@@ -2,6 +2,7 @@
 import { computed, onBeforeMount, ref } from 'vue';
 import axios from 'axios';
 import Cookies from 'js-cookie';
+import { Modal } from 'bootstrap';
 
 const components = ref([]);
 const componentToAdd = ref({
@@ -16,6 +17,11 @@ const componentToAdd = ref({
 const categories = ref([]);
 const componentToEdit = ref({});
 const loading = ref(false);
+const componentPictureRef = ref();
+const componentAddPictureUrl = ref();
+const componentEditPictureRef = ref();
+const previewPictureUrl = ref('');
+
 
 async function fetchComponents() {
   loading.value = true;
@@ -44,15 +50,22 @@ onBeforeMount(async () => {
 });
 
 async function onComponentAdd() {
-  await axios.post('/api/components/', componentToAdd.value);
-  componentToAdd.value = {
-    model_name: '',
-    category: '',
-    serial_number: '',
-    specifications: '',
-    quantity_stock: 1,
-    status: 'В наличии'
-  };
+  const formData = new FormData();
+  formData.append('picture', componentPictureRef.value.files[0]);
+
+  formData.append('model_name', componentToAdd.value.model_name);
+  formData.append('serial_number', componentToAdd.value.serial_number);
+  formData.append('specifications', componentToAdd.value.specifications);
+  formData.append('quantity_stock', componentToAdd.value.quantity_stock);
+
+    const categoryId = typeof componentToAdd.value.category === 'object' ? componentToAdd.value.category.id: componentToAdd.value.category; formData.append('category', categoryId);
+
+  await axios.post('/api/components/', formData, {
+  headers: {
+    'Content-Type': 'multipart/form-data'
+  }
+});
+
   await fetchComponents();
 }
 
@@ -66,12 +79,42 @@ function onEditClick(component) {
 }
 
 async function onUpdateComponent() {
-  const payload = { ...componentToEdit.value };
-  const id = payload.id;
-  delete payload.id;
+  const formData = new FormData();
 
-  await axios.put(`/api/components/${id}/`, payload);
+  formData.append('picture', componentEditPictureRef.value.files[0]);
+
+  formData.append('model_name', componentToEdit.value.model_name);
+  formData.append('serial_number', componentToEdit.value.serial_number);
+  formData.append('specifications', componentToEdit.value.specifications || '');
+  formData.append('quantity_stock', componentToEdit.value.quantity_stock);
+  formData.append('status', componentToEdit.value.status);
+
+  const categoryId = typeof componentToEdit.value.category === 'object'
+    ? componentToEdit.value.category.id
+    : componentToEdit.value.category;
+  formData.append('category', categoryId);
+
+  await axios.put(`/api/components/${componentToEdit.value.id}/`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+
+  componentEditPictureRef.value.value = '';
+
   await fetchComponents();
+}
+
+async function componentAddPictureChange() {
+  componentAddPictureUrl.value = URL.createObjectURL(componentPictureRef.value.files[0])
+}
+
+function onPictureClick(url) {
+  const fullUrl = url.startsWith('http') ? url : `http://localhost:8000${url}`;
+  previewPictureUrl.value = fullUrl;
+  const modalEl = document.getElementById('picturePreviewModal');
+  const modal = Modal.getOrCreateInstance(modalEl);
+  modal.show();
 }
 </script>
 
@@ -92,7 +135,6 @@ async function onUpdateComponent() {
             <label for="modelInput">Модель</label>
           </div>
         </div>
-
         <div class="col-md-3">
           <div class="form-floating">
             <input
@@ -155,6 +197,14 @@ async function onUpdateComponent() {
           </div>
         </div>
 
+        <div class="col-auto">
+          <input class="form-control" type="file" ref="componentPictureRef" @change="componentAddPictureChange">
+        </div>
+
+        <div class="col-auto">
+          <img :src="componentAddPictureUrl" style="max-height: 60px;" alt="">
+        </div>
+
         <div class="col-12">
           <button class="btn btn-primary" type="submit">
             Добавить
@@ -176,6 +226,7 @@ async function onUpdateComponent() {
           <th>Кол-во</th>
           <th>Статус</th>
           <th>Категория</th>
+          <th>Изображение</th>
         </tr>
       </thead>
       <tbody>
@@ -187,6 +238,10 @@ async function onUpdateComponent() {
           <td>{{ item.quantity_stock }}</td>
           <td>{{ item.status }}</td>
           <td>{{ categoriesById[item.category] ?? item.category }}</td>
+          <td v-if="item.picture">
+            <img :src="item.picture" style="max-height: 60px; cursor: pointer;" class="rounded border shadow-sm"@click="onPictureClick(item.picture)"/>
+          </td>
+          <td v-else class="text-muted">Нет фото</td>
         </tr>
       </tbody>
     </table>
@@ -204,21 +259,16 @@ async function onUpdateComponent() {
 
       <div class="d-flex gap-2">
         <button
-          class="btn btn-sm btn-outline-success"
+          class="btn btn-success"
           data-bs-toggle="modal"
           data-bs-target="#editComponentModal"
           @click="onEditClick(item)"
-          title="Редактировать"
         >
-          <i class="bi bi-pencil-fill"></i> Редактировать
+          <i class="bi bi-pen-fill"></i>
         </button>
 
-        <button
-          class="btn btn-sm btn-outline-danger"
-          @click="onRemoveClick(item)"
-          title="Удалить"
-        >
-          <i class="bi bi-trash-fill"></i> Удалить
+        <button class="btn btn-danger"@click="onRemoveClick(item)">
+          <i class="bi bi-x"></i>
         </button>
       </div>
     </div>
@@ -312,6 +362,10 @@ async function onUpdateComponent() {
                   <label for="editCategory">Категория</label>
                 </div>
               </div>
+              <div class="col-12">
+                <label class="form-label">Заменить изображение</label>
+                <input class="form-control" type="file" ref="componentEditPictureRef">
+              </div>
             </div>
           </div>
           <div class="modal-footer">
@@ -335,6 +389,19 @@ async function onUpdateComponent() {
       </div>
     </div>
   </div>
+
+  <div class="modal fade" id="picturePreviewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center pt-0">
+        <img :src="previewPictureUrl" class="img-fluid rounded shadow"/>
+      </div>
+    </div>
+  </div>
+</div>
 </template>
 
 <style scoped>

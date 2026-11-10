@@ -187,21 +187,16 @@ async function onUpdateHandoverAct() {
 
       <div class="d-flex gap-2">
         <button
-          class="btn btn-sm btn-outline-success"
+          class="btn btn-success"
           data-bs-toggle="modal"
           data-bs-target="#editHandoverActModal"
           @click="onEditClick(item)"
-          title="Редактировать"
         >
-          <i class="bi bi-pencil-fill"></i> Редактировать
+          <i class="bi bi-pen-fill"></i>
         </button>
 
-        <button
-          class="btn btn-sm btn-outline-danger"
-          @click="onRemoveClick(item)"
-          title="Удалить"
-        >
-          <i class="bi bi-trash-fill"></i> Удалить
+        <button class="btn btn-danger"@click="onRemoveClick(item)">
+          <i class="bi bi-x"></i>
         </button>
       </div>
     </div>
@@ -264,7 +259,7 @@ async function onUpdateHandoverAct() {
                     min="1"
                     required
                   />
-                  <label for="editReceiverInput">ID получателя (User ID)</label>
+                  <label for="editReceiverInput">ID получателя</label>
                 </div>
               </div>
               <div class="col-12">
@@ -277,7 +272,7 @@ async function onUpdateHandoverAct() {
                     min="1"
                     required
                   />
-                  <label for="editIssuerInput">ID инженера (User ID)</label>
+                  <label for="editIssuerInput">ID инженера</label>
                 </div>
               </div>
             </div>
