@@ -1,89 +1,213 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { onBeforeMount, ref } from 'vue';
 import axios from 'axios';
+import Cookies from 'js-cookie';
 
 const categories = ref([]);
-const editId = ref(null);
-const form = ref({ name: '', is_standalone: false });
+const categoryToAdd = ref({
+  name: '',
+  is_standalone: false
+});
 
-async function fetchData() {
+const categoryToEdit = ref({});
+const loading = ref(false);
+
+async function fetchCategories() {
+  loading.value = true;
   const r = await axios.get('/api/categories/');
+  console.log(r.data);
   categories.value = r.data;
+  loading.value = false;
 }
 
-onMounted(fetchData);
+onBeforeMount(async () => {
+  axios.defaults.headers.common['X-CSRFToken'] = Cookies.get('csrftoken');
+  await fetchCategories();
+});
 
-function resetForm() {
-  editId.value = null;
-  form.value = { name: '', is_standalone: false };
+async function onCategoryAdd() {
+  await axios.post('/api/categories/', categoryToAdd.value);
+  categoryToAdd.value = {
+    name: '',
+    is_standalone: false
+  };
+  await fetchCategories();
 }
 
-async function onSubmit() {
-  if (editId.value) {
-    await axios.patch(`/api/categories/${editId.value}/`, form.value);
-  } else {
-    await axios.post('/api/categories/', form.value);
-  }
-  resetForm();
-  await fetchData();
+async function onRemoveClick(category) {
+  await axios.delete(`/api/categories/${category.id}/`);
+  await fetchCategories();
 }
 
-function startEdit(cat) {
-  editId.value = cat.id;
-  form.value = { name: cat.name, is_standalone: cat.is_standalone };
+function onEditClick(category) {
+  categoryToEdit.value = { ...category };
 }
 
-async function onRemove(cat) {
-  if (confirm(`Удалить категорию "${cat.name}"?`)) {
-    await axios.delete(`/api/categories/${cat.id}/`);
-    await fetchData();
-  }
+async function onUpdateCategory() {
+  const payload = { ...categoryToEdit.value };
+  const id = payload.id;
+  delete payload.id;
+
+  await axios.put(`/api/categories/${id}/`, payload);
+  await fetchCategories();
 }
 </script>
 
 <template>
-  <div class="container">
-    <h3 class="mb-3">{{ editId ? 'Редактировать категорию' : 'Добавить категорию' }}</h3>
-
-    <form @submit.prevent="onSubmit" class="card p-3 mb-4 shadow-sm">
-      <div class="row g-3 align-items-center">
+  <div class="container py-4">
+    <h4 class="mb-3">Добавить категорию</h4>
+    <form @submit.prevent.stop="onCategoryAdd">
+      <div class="row g-3">
         <div class="col-md-6">
-          <input type="text" class="form-control" placeholder="Название категории" v-model="form.name" required />
-        </div>
-        <div class="col-md-3">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="standaloneCheck" v-model="form.is_standalone" />
-            <label class="form-check-label" for="standaloneCheck">Самостоятельное устройство</label>
+          <div class="form-floating">
+            <input
+              type="text"
+              class="form-control"
+              id="categoryNameInput"
+              v-model="categoryToAdd.name"
+              required
+            />
+            <label for="categoryNameInput">Название категории</label>
           </div>
         </div>
-        <div class="col-md-3 text-end">
-          <button v-if="editId" @click="resetForm" type="button" class="btn btn-secondary me-2">Отмена</button>
-          <button class="btn btn-primary" type="submit">{{ editId ? 'Сохранить' : 'Добавить' }}</button>
+
+        <div class="col-md-4 d-flex align-items-center">
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="checkStandaloneAdd"
+              v-model="categoryToAdd.is_standalone"
+            />
+            <label class="form-check-label" for="checkStandaloneAdd">
+              Самостоятельное устройство
+            </label>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <button class="btn btn-primary" type="submit">
+            Добавить
+          </button>
         </div>
       </div>
     </form>
 
-    <h4 class="mb-3">Список категорий</h4>
-    <table class="table table-bordered table-hover">
+    <h4 class="my-4">Категории на складе</h4>
+    <div v-if="loading" class="text-muted">Загрузка данных...</div>
+
+    <table v-else class="table table-hover table-bordered">
       <thead class="table-light">
         <tr>
           <th>ID</th>
           <th>Название</th>
-          <th>Самостоятельное</th>
-          <th>Действия</th>
+          <th>Тип</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="cat in categories" :key="cat.id">
-          <td>{{ cat.id }}</td>
-          <td>{{ cat.name }}</td>
-          <td>{{ cat.is_standalone ? 'Да' : 'Нет' }}</td>
-          <td>
-            <button class="btn btn-sm btn-outline-primary me-2" @click="startEdit(cat)">✏️</button>
-            <button class="btn btn-sm btn-outline-danger" @click="onRemove(cat)">🗑️</button>
-          </td>
+        <tr v-for="item in categories" :key="item.id">
+          <td>{{ item.id }}</td>
+          <td><strong>{{ item.name }}</strong></td>
+          <td>{{ item.is_standalone ? 'Самостоятельное устройство' : 'Комплектующее' }}</td>
         </tr>
       </tbody>
     </table>
+
+    <h4 class="my-4">Управление категориями</h4>
+    <div
+      v-for="item in categories"
+      :key="item.id"
+      class="d-flex align-items-center justify-content-between border p-2 mb-2 rounded bg-light"
+    >
+      <div>
+        <strong>{{ item.name }}</strong>
+        <span class="text-muted ms-2">({{ item.is_standalone ? 'Самостоятельное устройство' : 'Комплектующее' }})</span>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button
+          class="btn btn-sm btn-outline-success"
+          data-bs-toggle="modal"
+          data-bs-target="#editCategoryModal"
+          @click="onEditClick(item)"
+          title="Редактировать"
+        >
+          <i class="bi bi-pencil-fill"></i> Редактировать
+        </button>
+
+        <button
+          class="btn btn-sm btn-outline-danger"
+          @click="onRemoveClick(item)"
+          title="Удалить"
+        >
+          <i class="bi bi-trash-fill"></i> Удалить
+        </button>
+      </div>
+    </div>
+
+    <div class="modal fade" id="editCategoryModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h1 class="modal-title fs-5">Редактировать категорию</h1>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div class="row g-3">
+              <div class="col-12">
+                <div class="form-floating">
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="editCategoryName"
+                    v-model="categoryToEdit.name"
+                    required
+                  />
+                  <label for="editCategoryName">Название категории</label>
+                </div>
+              </div>
+              <div class="col-12">
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="editStandaloneCheck"
+                    v-model="categoryToEdit.is_standalone"
+                  />
+                  <label class="form-check-label" for="editStandaloneCheck">
+                    Самостоятельное устройство
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Закрыть
+            </button>
+            <button
+              data-bs-dismiss="modal"
+              type="button"
+              class="btn btn-primary"
+              @click="onUpdateCategory"
+            >
+              Сохранить
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+</style>
