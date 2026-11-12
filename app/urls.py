@@ -16,7 +16,7 @@ router.register("assembly-items", AssemblyItemViewSet)
 router.register("handover-acts", HandoverActViewSet)
 
 urlpatterns = [
-    path('', views.ShowComponentsView.as_view()),
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
+    path('api/user-info/', views.user_info),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

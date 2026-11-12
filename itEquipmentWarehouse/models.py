@@ -23,6 +23,8 @@ class Component(models.Model):
     status = models.TextField("Статус", default="В наличии")
     created_at = models.DateTimeField("Дата добавления", auto_now_add=True)
     picture = models.ImageField("Изображение", null=True, upload_to="components/") 
+    user = models.ForeignKey("auth.User", verbose_name="Пользователь", on_delete=models.CASCADE, null=True)
+    
     class Meta:
             verbose_name = "Компонент"
             verbose_name_plural = "Компоненты"

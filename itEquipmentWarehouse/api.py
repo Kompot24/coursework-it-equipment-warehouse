@@ -13,6 +13,21 @@ class CategoryViewSet(viewsets.ModelViewSet):
 class ComponentViewSet(viewsets.ModelViewSet):
     queryset = Component.objects.select_related('category').all()
     serializer_class = ComponentSerializer
+    
+    def get_queryset(self):
+        qs = super().get_queryset()
+
+        if not self.request.user.is_authenticated:
+            return qs.none()
+
+        if not self.request.user.is_superuser:
+            qs = qs.filter(user=self.request.user)
+        else:
+            user_id = self.request.query_params.get('user')
+            if user_id:
+                qs = qs.filter(user_id=user_id)
+
+        return qs
 
 
 class BuildRequestViewSet(viewsets.ModelViewSet):

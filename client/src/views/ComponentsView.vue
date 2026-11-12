@@ -17,54 +17,88 @@ const componentToAdd = ref({
 const categories = ref([]);
 const componentToEdit = ref({});
 const loading = ref(false);
-const componentPictureRef = ref();
-const componentAddPictureUrl = ref();
-const componentEditPictureRef = ref();
+
+const componentPictureRef = ref(null);
+const componentAddPictureUrl = ref('');
+const componentEditPictureRef = ref(null);
 const previewPictureUrl = ref('');
 
+const userInfo = ref({
+  is_authenticated: false,
+  is_superuser: false,
+  users: []
+});
+const selectedUserId = ref('');
 
 async function fetchComponents() {
   loading.value = true;
-  const r = await axios.get('/api/components/');
-  console.log(r.data);
+  const params = {};
+  
+  if (selectedUserId.value) {
+    params.user = selectedUserId.value;
+  }
+
+  const r = await axios.get('/api/components/', { params });
   components.value = r.data;
   loading.value = false;
 }
 
 async function fetchCategories() {
-  loading.value = true;
   const r = await axios.get('/api/categories/');
-  console.log(r.data);
   categories.value = r.data;
-  loading.value = false;
+}
+
+async function fetchUserInfo() {
+  const r = await axios.get('/api/user-info/');
+  userInfo.value = r.data;
 }
 
 const categoriesById = computed(() =>
   Object.fromEntries(categories.value.map(c => [c.id, c.name]))
 );
 
+const usersById = computed(() =>
+  Object.fromEntries((userInfo.value.users || []).map(u => [u.id, u.username]))
+);
+
 onBeforeMount(async () => {
   axios.defaults.headers.common['X-CSRFToken'] = Cookies.get('csrftoken');
+  await fetchUserInfo();
   await fetchCategories();
   await fetchComponents();
 });
 
 async function onComponentAdd() {
   const formData = new FormData();
+
   formData.append('picture', componentPictureRef.value.files[0]);
 
   formData.append('model_name', componentToAdd.value.model_name);
   formData.append('serial_number', componentToAdd.value.serial_number);
   formData.append('specifications', componentToAdd.value.specifications);
   formData.append('quantity_stock', componentToAdd.value.quantity_stock);
+  formData.append('status', componentToAdd.value.status);
 
-    const categoryId = typeof componentToAdd.value.category === 'object' ? componentToAdd.value.category.id: componentToAdd.value.category; formData.append('category', categoryId);
+  const categoryId = typeof componentToAdd.value.category === 'object' ? componentToAdd.value.category.id : componentToAdd.value.category;
+  formData.append('category', categoryId);
 
   await axios.post('/api/components/', formData, {
-  headers: {
-    'Content-Type': 'multipart/form-data'
-  }
-});
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+
+  componentToAdd.value = {
+    model_name: '',
+    category: '',
+    serial_number: '',
+    specifications: '',
+    quantity_stock: 1,
+    status: 'В наличии'
+  };
+  
+  componentPictureRef.value.value = '';
+  componentAddPictureUrl.value = '';
 
   await fetchComponents();
 }
@@ -94,7 +128,7 @@ async function onUpdateComponent() {
     : componentToEdit.value.category;
   formData.append('category', categoryId);
 
-  await axios.put(`/api/components/${componentToEdit.value.id}/`, formData, {
+  await axios.patch(`/api/components/${componentToEdit.value.id}/`, formData, {
     headers: {
       'Content-Type': 'multipart/form-data'
     }
@@ -105,8 +139,9 @@ async function onUpdateComponent() {
   await fetchComponents();
 }
 
-async function componentAddPictureChange() {
-  componentAddPictureUrl.value = URL.createObjectURL(componentPictureRef.value.files[0])
+function componentAddPictureChange() {
+  const file = componentPictureRef.value?.files?.[0];
+  componentAddPictureUrl.value = file ? URL.createObjectURL(file) : '';
 }
 
 function onPictureClick(url) {
@@ -135,6 +170,7 @@ function onPictureClick(url) {
             <label for="modelInput">Модель</label>
           </div>
         </div>
+
         <div class="col-md-3">
           <div class="form-floating">
             <input
@@ -197,12 +233,18 @@ function onPictureClick(url) {
           </div>
         </div>
 
-        <div class="col-auto">
-          <input class="form-control" type="file" ref="componentPictureRef" @change="componentAddPictureChange">
+        <div class="col-auto d-flex align-items-center">
+          <input
+            class="form-control"
+            type="file"
+            accept="image/*"
+            ref="componentPictureRef"
+            @change="componentAddPictureChange"
+          />
         </div>
 
-        <div class="col-auto">
-          <img :src="componentAddPictureUrl" style="max-height: 60px;" alt="">
+        <div class="col-auto" v-if="componentAddPictureUrl">
+          <img :src="componentAddPictureUrl" style="max-height: 60px;" class="rounded border" alt="Превью" />
         </div>
 
         <div class="col-12">
@@ -214,9 +256,29 @@ function onPictureClick(url) {
     </form>
 
     <h4 class="my-4">Компоненты на складе</h4>
+
+    <div v-if="userInfo.is_superuser" class="row mb-3">
+      <div class="col-md-4">
+        <div class="form-floating">
+          <select
+            class="form-select"
+            id="userFilterSelect"
+            v-model="selectedUserId"
+            @change="fetchComponents"
+          >
+            <option value="">Все пользователи</option>
+            <option v-for="u in userInfo.users" :key="u.id" :value="u.id">
+              {{ u.username }} (ID: {{ u.id }})
+            </option>
+          </select>
+          <label for="userFilterSelect">Фильтр по пользователю</label>
+        </div>
+      </div>
+    </div>
+
     <div v-if="loading" class="text-muted">Загрузка данных...</div>
 
-    <table v-else class="table table-hover table-bordered">
+    <table v-else class="table table-hover table-bordered align-middle">
       <thead class="table-light">
         <tr>
           <th>ID</th>
@@ -227,6 +289,7 @@ function onPictureClick(url) {
           <th>Статус</th>
           <th>Категория</th>
           <th>Изображение</th>
+          <th v-if="userInfo.is_superuser">Пользователь</th>
         </tr>
       </thead>
       <tbody>
@@ -238,10 +301,20 @@ function onPictureClick(url) {
           <td>{{ item.quantity_stock }}</td>
           <td>{{ item.status }}</td>
           <td>{{ categoriesById[item.category] ?? item.category }}</td>
-          <td v-if="item.picture">
-            <img :src="item.picture" style="max-height: 60px; cursor: pointer;" class="rounded border shadow-sm"@click="onPictureClick(item.picture)"/>
+          <td>
+            <img
+              v-if="item.picture"
+              :src="item.picture"
+              style="max-height: 60px; cursor: pointer;"
+              class="rounded border shadow-sm"
+              @click="onPictureClick(item.picture)"
+              alt="Фото компонента"
+            />
+            <span v-else class="text-muted">Нет фото</span>
           </td>
-          <td v-else class="text-muted">Нет фото</td>
+          <td v-if="userInfo.is_superuser">
+            {{ usersById[item.user] ?? item.user ?? '—' }}
+          </td>
         </tr>
       </tbody>
     </table>
@@ -259,15 +332,20 @@ function onPictureClick(url) {
 
       <div class="d-flex gap-2">
         <button
-          class="btn btn-success"
+          class="btn btn-sm btn-success"
           data-bs-toggle="modal"
           data-bs-target="#editComponentModal"
           @click="onEditClick(item)"
+          title="Редактировать"
         >
           <i class="bi bi-pen-fill"></i>
         </button>
 
-        <button class="btn btn-danger"@click="onRemoveClick(item)">
+        <button
+          class="btn btn-sm btn-danger"
+          @click="onRemoveClick(item)"
+          title="Удалить"
+        >
           <i class="bi bi-x"></i>
         </button>
       </div>
@@ -362,9 +440,15 @@ function onPictureClick(url) {
                   <label for="editCategory">Категория</label>
                 </div>
               </div>
+
               <div class="col-12">
                 <label class="form-label">Заменить изображение</label>
-                <input class="form-control" type="file" ref="componentEditPictureRef">
+                <input
+                  class="form-control"
+                  type="file"
+                  accept="image/*"
+                  ref="componentEditPictureRef"
+                />
               </div>
             </div>
           </div>
@@ -388,20 +472,20 @@ function onPictureClick(url) {
         </div>
       </div>
     </div>
-  </div>
 
-  <div class="modal fade" id="picturePreviewModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-0">
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body text-center pt-0">
-        <img :src="previewPictureUrl" class="img-fluid rounded shadow"/>
+    <div class="modal fade" id="picturePreviewModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header border-0 pb-0">
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body text-center pt-0">
+            <img :src="previewPictureUrl" class="img-fluid rounded shadow" alt="Увеличенное фото" />
+          </div>
+        </div>
       </div>
     </div>
   </div>
-</div>
 </template>
 
 <style scoped>
