@@ -21,13 +21,23 @@ class ComponentSerializer(serializers.ModelSerializer):
 
 
 class AssemblyItemSerializer(serializers.ModelSerializer):
+    def create(self, validated_data):
+        if 'request' in self.context:
+            validated_data['user'] = self.context['request'].user
+
+        return super().create(validated_data)
+
     class Meta:
         model = AssemblyItem
         fields = '__all__'
 
 
 class BuildRequestSerializer(serializers.ModelSerializer):
-    items = AssemblyItemSerializer(many=True, read_only=True)
+    def create(self, validated_data):
+        if 'request' in self.context:
+            validated_data['user'] = self.context['request'].user
+
+        return super().create(validated_data)
 
     class Meta:
         model = BuildRequest
@@ -35,6 +45,12 @@ class BuildRequestSerializer(serializers.ModelSerializer):
 
 
 class HandoverActSerializer(serializers.ModelSerializer):
+    def create(self, validated_data):
+        if 'request' in self.context:
+            validated_data['user'] = self.context['request'].user
+
+        return super().create(validated_data)
+
     class Meta:
         model = HandoverAct
         fields = '__all__'

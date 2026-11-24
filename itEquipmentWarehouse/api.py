@@ -34,12 +34,57 @@ class BuildRequestViewSet(viewsets.ModelViewSet):
     queryset = BuildRequest.objects.select_related('employee', 'engineer').prefetch_related('items').all()
     serializer_class = BuildRequestSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+
+        if not self.request.user.is_authenticated:
+            return qs.none()
+
+        if not self.request.user.is_superuser:
+            qs = qs.filter(user=self.request.user)
+        else:
+            user_id = self.request.query_params.get('user')
+            if user_id:
+                qs = qs.filter(user_id=user_id)
+
+        return qs
+
 
 class AssemblyItemViewSet(viewsets.ModelViewSet):
     queryset = AssemblyItem.objects.select_related('request', 'component').all()
     serializer_class = AssemblyItemSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+
+        if not self.request.user.is_authenticated:
+            return qs.none()
+
+        if not self.request.user.is_superuser:
+            qs = qs.filter(user=self.request.user)
+        else:
+            user_id = self.request.query_params.get('user')
+            if user_id:
+                qs = qs.filter(user_id=user_id)
+
+        return qs
+
 
 class HandoverActViewSet(viewsets.ModelViewSet):
     queryset = HandoverAct.objects.select_related('request', 'receiver_user', 'issuer_user').all()
     serializer_class = HandoverActSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+
+        if not self.request.user.is_authenticated:
+            return qs.none()
+
+        if not self.request.user.is_superuser:
+            qs = qs.filter(user=self.request.user)
+        else:
+            user_id = self.request.query_params.get('user')
+            if user_id:
+                qs = qs.filter(user_id=user_id)
+
+        return qs

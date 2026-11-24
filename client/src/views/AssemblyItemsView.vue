@@ -15,10 +15,24 @@ const buildRequests = ref([]);
 const assemblyItemToEdit = ref({});
 const loading = ref(false);
 
+const selectedUserId = ref('');
+const userInfo = ref({
+  is_authenticated: false,
+  is_superuser: false,
+  users: []
+});
+
+const usersById = computed(() =>
+  Object.fromEntries((userInfo.value.users || []).map(u => [u.id, u.username]))
+);
+
 async function fetchAssemblyItems() {
   loading.value = true;
-  const r = await axios.get('/api/assembly-items/');
-  console.log(r.data);
+  const params = {};
+  if (selectedUserId.value) {
+    params.user = selectedUserId.value;
+  }
+  const r = await axios.get('/api/assembly-items/', { params });
   assemblyItems.value = r.data;
   loading.value = false;
 }
@@ -46,6 +60,7 @@ onBeforeMount(async () => {
   await fetchComponents();
   await fetchBuildRequests();
   await fetchAssemblyItems();
+  await fetchUserInfo();
 });
 
 async function onAssemblyItemAdd() {
@@ -75,6 +90,13 @@ async function onUpdateAssemblyItem() {
   await axios.put(`/api/assembly-items/${id}/`, payload);
   await fetchAssemblyItems();
 }
+
+async function fetchUserInfo() {
+  const r = await axios.get('/api/user-info/');
+  userInfo.value = r.data;
+}
+
+
 </script>
 
 <template>
@@ -127,6 +149,24 @@ async function onUpdateAssemblyItem() {
     </form>
 
     <h4 class="my-4">Детали сборок</h4>
+    <div v-if="userInfo.is_superuser" class="row mb-3">
+      <div class="col-md-4">
+        <div class="form-floating">
+          <select
+            class="form-select"
+            id="userFilterSelect"
+            v-model="selectedUserId"
+            @change="fetchAssemblyItems"
+          >
+            <option value="">Все пользователи</option>
+            <option v-for="u in userInfo.users" :key="u.id" :value="u.id">
+              {{ u.username }} (ID: {{ u.id }})
+            </option>
+          </select>
+          <label for="userFilterSelect">Фильтр по пользователю</label>
+        </div>
+      </div>
+    </div>
     <div v-if="loading" class="text-muted">Загрузка данных...</div>
 
     <table v-else class="table table-hover table-bordered">
@@ -136,6 +176,7 @@ async function onUpdateAssemblyItem() {
           <th>Заявка</th>
           <th>Компонент</th>
           <th>Количество</th>
+          <th v-if="userInfo.is_superuser">Пользователь</th>
         </tr>
       </thead>
       <tbody>
@@ -144,6 +185,7 @@ async function onUpdateAssemblyItem() {
           <td>Заявка #{{ item.request }} ({{ requestsById[item.request] ?? item.request }})</td>
           <td><strong>{{ componentsById[item.component] ?? item.component }}</strong></td>
           <td>{{ item.quantity }} шт.</td>
+          <td v-if="userInfo.is_superuser">{{ usersById[item.user] ?? item.user ?? '—' }}</td>
         </tr>
       </tbody>
     </table>

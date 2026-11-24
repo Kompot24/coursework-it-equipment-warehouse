@@ -40,6 +40,7 @@ class BuildRequest(models.Model):
     status = models.CharField("Статус", default="В ожидании")
     comment = models.TextField("Примечание", blank=True, null=True)
     created_at = models.DateTimeField("Создана", auto_now_add=True)
+    user = models.ForeignKey("auth.User", verbose_name="Пользователь", on_delete=models.CASCADE, null=True, related_name="created_build_requests")
 
     class Meta:
         verbose_name = "Заявка на сборку"
@@ -53,7 +54,8 @@ class AssemblyItem(models.Model):
     component = models.ForeignKey(Component, on_delete=models.CASCADE, related_name="assemblies", verbose_name="Деталь")
     quantity = models.PositiveIntegerField("Количество", default=1)
     installed_at = models.DateTimeField("Время установки", auto_now_add=True)
-
+    user = models.ForeignKey("auth.User", verbose_name="Пользователь", on_delete=models.CASCADE, null=True, related_name="created_assembly_items")
+    
     class Meta:
         verbose_name = "Деталь сборки"
         verbose_name_plural = "Детали сборок"
@@ -68,6 +70,7 @@ class HandoverAct(models.Model):
     inventory_tag = models.CharField("Инвентарный номер", unique=True)
     workplace_location = models.CharField("Кабинет/Рабочее место")
     signed_at = models.DateTimeField("Дата подписания", auto_now_add=True)
+    user = models.ForeignKey("auth.User", verbose_name="Пользователь", on_delete=models.CASCADE, null=True, related_name="created_handover_acts")
 
     class Meta:
         verbose_name = "Акт выдачи"

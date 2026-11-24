@@ -29,6 +29,13 @@ const userInfo = ref({
   users: []
 });
 const selectedUserId = ref('');
+const categoriesById = computed(() =>
+  Object.fromEntries(categories.value.map(c => [c.id, c.name]))
+);
+
+const usersById = computed(() =>
+  Object.fromEntries((userInfo.value.users || []).map(u => [u.id, u.username]))
+);
 
 async function fetchComponents() {
   loading.value = true;
@@ -53,13 +60,6 @@ async function fetchUserInfo() {
   userInfo.value = r.data;
 }
 
-const categoriesById = computed(() =>
-  Object.fromEntries(categories.value.map(c => [c.id, c.name]))
-);
-
-const usersById = computed(() =>
-  Object.fromEntries((userInfo.value.users || []).map(u => [u.id, u.username]))
-);
 
 onBeforeMount(async () => {
   axios.defaults.headers.common['X-CSRFToken'] = Cookies.get('csrftoken');

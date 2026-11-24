@@ -1,5 +1,5 @@
 <script setup>
-import { onBeforeMount, ref } from 'vue';
+import { computed, onBeforeMount, ref } from 'vue';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
@@ -15,16 +15,30 @@ const buildRequestToAdd = ref({
 const buildRequestToEdit = ref({});
 const loading = ref(false);
 
+const selectedUserId = ref('');
+const userInfo = ref({
+  is_authenticated: false,
+  is_superuser: false,
+  users: []
+});
+const usersById = computed(() =>
+  Object.fromEntries((userInfo.value.users || []).map(u => [u.id, u.username]))
+);
+
 async function fetchBuildRequests() {
   loading.value = true;
-  const r = await axios.get('/api/build-requests/');
-  console.log(r.data);
+  const params = {};
+  if (selectedUserId.value) {
+    params.user = selectedUserId.value;
+  }
+  const r = await axios.get('/api/build-requests/', { params });
   buildRequests.value = r.data;
   loading.value = false;
 }
 
 onBeforeMount(async () => {
   axios.defaults.headers.common['X-CSRFToken'] = Cookies.get('csrftoken');
+  await fetchUserInfo();
   await fetchBuildRequests();
 });
 
@@ -57,6 +71,14 @@ async function onUpdateBuildRequest() {
   await axios.put(`/api/build-requests/${id}/`, payload);
   await fetchBuildRequests();
 }
+
+
+async function fetchUserInfo() {
+  const r = await axios.get('/api/user-info/');
+  userInfo.value = r.data;
+}
+
+
 </script>
 
 <template>
@@ -133,7 +155,26 @@ async function onUpdateBuildRequest() {
       </div>
     </form>
 
+
     <h4 class="my-4">Заявки на сборку</h4>
+    <div v-if="userInfo.is_superuser" class="row mb-3">
+        <div class="col-md-4">
+          <div class="form-floating">
+            <select
+              class="form-select"
+              id="userFilterSelect"
+              v-model="selectedUserId"
+              @change="fetchBuildRequests"
+            >
+              <option value="">Все пользователи</option>
+              <option v-for="u in userInfo.users" :key="u.id" :value="u.id">
+                {{ u.username }} (ID: {{ u.id }})
+              </option>
+            </select>
+            <label for="userFilterSelect">Фильтр по пользователю</label>
+          </div>
+        </div>
+    </div>
     <div v-if="loading" class="text-muted">Загрузка данных...</div>
 
     <table v-else class="table table-hover table-bordered">
@@ -145,6 +186,7 @@ async function onUpdateBuildRequest() {
           <th>Тип</th>
           <th>Статус</th>
           <th>Комментарий</th>
+          <th v-if="userInfo.is_superuser">Пользователь</th>
         </tr>
       </thead>
       <tbody>
@@ -155,6 +197,7 @@ async function onUpdateBuildRequest() {
           <td>{{ item.request_type }}</td>
           <td>{{ item.status }}</td>
           <td>{{ item.comment }}</td>
+          <td v-if="userInfo.is_superuser">{{ usersById[item.user] ?? item.user ?? '—' }} </td>
         </tr>
       </tbody>
     </table>
